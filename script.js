@@ -4,8 +4,9 @@ import {
   getAuth,
   signInAnonymously,
   GoogleAuthProvider,
-  signInWithPopup,
-  linkWithPopup,
+  signInWithRedirect,
+  linkWithRedirect,
+  getRedirectResult,
   signOut,
   onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
@@ -27,23 +28,38 @@ const db = getDatabase(app);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 
-await signInAnonymously(auth);
+try {
+  const redirectResult = await getRedirectResult(auth);
+  if (redirectResult) {
+    console.log("Accesso con Google completato:", redirectResult.user.displayName);
+  }
+} catch (error) {
+  if (error.code === "auth/credential-already-in-use") {
+    await signInWithRedirect(auth, googleProvider);
+  } else if (error.code) {
+    console.error("Errore nel completamento dell'accesso con Google:", error);
+  }
+}
 
-console.log("Signed in anonymously: ", auth.currentUser.uid);
+if (!auth.currentUser) {
+  await signInAnonymously(auth);
+}
+
+console.log(
+  "Utente attuale:",
+  auth.currentUser?.uid,
+  auth.currentUser?.isAnonymous ? "(anonimo)" : "(Google)",
+);
 
 async function signInWithGoogle() {
   try {
     if (auth.currentUser && auth.currentUser.isAnonymous) {
-      await linkWithPopup(auth.currentUser, googleProvider);
+      await linkWithRedirect(auth.currentUser, googleProvider);
     } else {
-      await signInWithPopup(auth, googleProvider);
+      await signInWithRedirect(auth, googleProvider);
     }
   } catch (error) {
-    if (error.code === "auth/credential-already-in-use") {
-      await signInWithPopup(auth, googleProvider);
-    } else if (error.code !== "auth/popup-closed-by-user") {
-      console.error("Errore durante l'accesso con Google:", error);
-    }
+    console.error("Errore durante l'accesso con Google:", error);
   }
 }
 
@@ -67,7 +83,7 @@ let shipSizesInputs = document.getElementById("ship-sizes-inputs");
 
 let ships = [];
 let shipHits = 0;
-let totalShots = 0;       
+let totalShots = 0; 
 let elapsedMinutes = 0;
 let elapsedSeconds = 0;
 let timerInterval = null;
@@ -348,7 +364,7 @@ function checkNave(elementId) {
     element.classList.contains("hit") ||
     element.classList.contains("disabled")
   ) {
-    return; 
+    return;
   }
 
   totalShots++;
@@ -392,7 +408,7 @@ function checkWin() {
     modalScoreElement.innerText = String(currentScore);
     saveScoreBtn.disabled = false;
     saveScoreBtn.innerText = "Salva punteggio";
-    updateAuthUI(auth.currentUser); 
+    updateAuthUI(auth.currentUser);
 
     if (scoreModal) {
       scoreModal.show();
@@ -440,11 +456,10 @@ function startTimer() {
   }, 1000);
 }
 
-
 function calcolaPunteggio() {
   let difficultyBase = gridSize * 20 + totLenNavi * 30 + ships.length * 20;
 
-  let minAttempts = totLenNavi;
+  let minAttempts = totLenNavi; 
   let extraAttempts = Math.max(0, totalShots - minAttempts);
   let attemptsPenalty = extraAttempts * 15;
 
