@@ -1,3 +1,26 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+import { getDatabase, ref, push, set, query, orderByChild, limitToLast, onValue } from "https://ww.gstatic.com/firebasejs/12.1.0/firebase-auth.js"
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDux-C2znjXzD1x-MR6t340GTgUhk6m9Ho",
+  authDomain: "battaglianavale-f9c34.firebaseapp.com",
+  projectId: "battaglianavale-f9c34",
+  storageBucket: "battaglianavale-f9c34.firebasestorage.app",
+  messagingSenderId: "359622454307",
+  appId: "1:359622454307:web:fcbd7f48ec3228198fd596",
+  measurementId: "G-KB1X9FH4QT",
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const auth = getAuth(app);
+
+await signInAnonymously(auth);
+
+console.log("Signed in anonymously: ", auth.currentUser.uid);
+
 let gridSize = 8;
 let lenNavi = [1, 2, 3, 4, 5];
 let totLenNavi = 15;
@@ -11,8 +34,8 @@ let numShipsInput = document.getElementById("num-ships");
 let gridSizeInput = document.getElementById("grid-size");
 let shipSizesInputs = document.getElementById("ship-sizes-inputs");
 
-let ships = [];  
-let shipHits = 0;       
+let ships = [];
+let shipHits = 0;
 let timerInterval = null;
 let gameStarted = false;
 
@@ -24,7 +47,7 @@ document.getElementById("toggle-settings").addEventListener("click", () => {
 numShipsInput.addEventListener("input", renderShipSizeInputs);
 gridSizeInput.addEventListener("input", renderShipSizeInputs);
 
-renderShipSizeInputs(); 
+renderShipSizeInputs();
 
 function renderShipSizeInputs() {
   let count = clamp(parseInt(numShipsInput.value) || 1, 1, 6);
@@ -63,7 +86,9 @@ function readSettings() {
   gridSizeInput.value = gridSize;
 
   let sizeInputs = shipSizesInputs.querySelectorAll(".ship-size-input");
-  lenNavi = Array.from(sizeInputs).map((input) => clamp(parseInt(input.value) || 1, 1, gridSize));
+  lenNavi = Array.from(sizeInputs).map((input) =>
+    clamp(parseInt(input.value) || 1, 1, gridSize),
+  );
   totLenNavi = lenNavi.reduce((sum, len) => sum + len, 0);
 }
 
@@ -76,7 +101,8 @@ function startGame() {
   let placed = setNavi();
   if (!placed) {
     document.getElementById("grid-wrapper").innerHTML = "";
-    settingsError.innerText = "Le navi scelte non entrano nella griglia: riducile o ingrandisci la griglia.";
+    settingsError.innerText =
+      "Le navi scelte non entrano nella griglia: riducile o ingrandisci la griglia.";
     settingsPanel.classList.add("visible");
     return;
   }
@@ -95,7 +121,8 @@ function resetGame() {
   settingsError.innerText = "";
   messageElement.innerText = 'Premi "Inizia partita" per giocare!';
   hitsElement.innerText = "Colpi a segno: 0";
-  document.getElementById("timer").innerHTML = `<span id="min">00</span>:<span id="sec">00</span>`;
+  document.getElementById("timer").innerHTML =
+    `<span id="min">00</span>:<span id="sec">00</span>`;
 }
 
 function resetState() {
@@ -127,7 +154,12 @@ function drawGrid() {
 }
 
 function setNavi() {
-  ships = lenNavi.map((len) => ({ length: len, hits: 0, sunk: false, cells: [] }));
+  ships = lenNavi.map((len) => ({
+    length: len,
+    hits: 0,
+    sunk: false,
+    cells: [],
+  }));
 
   let placedShips = 0;
   let attempts = 0;
@@ -135,7 +167,7 @@ function setNavi() {
 
   while (placedShips < ships.length) {
     if (attempts++ > maxAttempts) {
-      return false; 
+      return false;
     }
 
     let len = ships[placedShips].length;
@@ -220,7 +252,10 @@ function setMenu() {
 function checkNave(elementId) {
   let element = document.getElementById(elementId);
 
-  if (element.classList.contains("hit") || element.classList.contains("disabled")) {
+  if (
+    element.classList.contains("hit") ||
+    element.classList.contains("disabled")
+  ) {
     return; // cella già colpita
   }
 
@@ -234,7 +269,9 @@ function checkNave(elementId) {
     ship.hits++;
 
     // riempi la prossima casellina di anteprima per quella nave
-    let preview = document.getElementById(`nave-preview-${shipIndex}-${ship.hits - 1}`);
+    let preview = document.getElementById(
+      `nave-preview-${shipIndex}-${ship.hits - 1}`,
+    );
     if (preview) preview.classList.add("hit");
 
     if (ship.hits === ship.length) {
@@ -272,3 +309,28 @@ function startTimer() {
     timerElement.innerHTML = `<span id="min">${String(minutes).padStart(2, "0")}</span>:<span id="sec">${String(seconds).padStart(2, "0")}</span>`;
   }, 1000);
 }
+
+
+async function salvaPunteggio(nome, punteggio){
+  const nuovoPunteggio = push(ref(db, 'leaderboard'));
+  await set(nuovoPunteggio, {
+    nome: nome,
+    punteggio: punteggio,
+    timestamp: Date.now()
+  });
+}
+
+
+const leaderboard = query(ref(db, 'leaderboard'), orderByChild('punteggio'), limitToLast(10));
+onValue(leaderboard, (snapshot) => {
+  const leaderboardElement = document.getElementById('leaderboard');
+  leaderboardElement.innerHTML = ''; 
+
+  snapshot.forEach((childSnapshot) => {
+    const childData = childSnapshot.val();
+    const leaderboardEntry = document.createElement('div');
+    leaderboardEntry.classList.add('leaderboard-entry');
+    leaderboardEntry.innerText = `${childData.nome}: ${childData.punteggio}`;
+    leaderboardElement.appendChild(leaderboardEntry);
+  });
+});
