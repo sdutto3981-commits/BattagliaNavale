@@ -9,6 +9,7 @@ let hitsElement = document.getElementById("hits");
 document.getElementById("start-game").addEventListener("click", function () {
   drawGrid();
   setNavi();
+  setMenu();
   startTimer();
 });
 
@@ -76,6 +77,24 @@ function setNavi() {
   }
 }
 
+function setMenu() {
+  let menu = document.getElementById("menu");
+  menu.style.display = "inline";
+
+  for (let i = 0; i < lenNavi.length; i++) {
+    let shipDiv = document.createElement("div");
+    let text = document.createElement("p");
+    text.innerText = `Nave ${i + 1}: ${lenNavi[i]} caselle`;
+    shipDiv.appendChild(text);
+    for (let j = 0; j < lenNavi[i]; j++) {
+      let cell = document.createElement("div");
+      cell.classList.add("nave-preview");
+      shipDiv.appendChild(cell);
+    }
+    menu.appendChild(shipDiv);
+  }
+}
+
 function checkNave(elementId) {
   let element = document.getElementById(elementId);
   let hit = false;
@@ -92,7 +111,7 @@ function checkNave(elementId) {
     element.classList.add("hit");
     
   } else {
-    if (element.classList.contains('disabled') || element.classList.contains('hit')){ {
+    if (element.classList.contains('disabled') || element.classList.contains('hit')){ 
       return;
     }
     messageElement.innerText = "Miss!";

@@ -54,6 +54,7 @@ p {
 }
 
 #menu{
+    display: none;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     width: 400px;
     padding: 10px;
@@ -66,4 +67,12 @@ p {
     margin-top: 10px;
     text-align: center;
     font-size: large;
+}
+
+.nave-preview {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin: 2px;
+    background-color: lightblue;
 }
