@@ -1,11 +1,12 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-import { getDatabase, ref, push, set, query, orderByChild, limitToLast, onValue } from "https://ww.gstatic.com/firebasejs/12.1.0/firebase-auth.js"
+import { getDatabase, ref, push, set, query, orderByChild, limitToLast, onValue } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 
 
 const firebaseConfig = {
   apiKey: "AIzaSyDux-C2znjXzD1x-MR6t340GTgUhk6m9Ho",
   authDomain: "battaglianavale-f9c34.firebaseapp.com",
+  databaseURL: "https://battaglianavale-f9c34-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "battaglianavale-f9c34",
   storageBucket: "battaglianavale-f9c34.firebasestorage.app",
   messagingSenderId: "359622454307",
@@ -36,8 +37,26 @@ let shipSizesInputs = document.getElementById("ship-sizes-inputs");
 
 let ships = [];
 let shipHits = 0;
+let totalShots = 0;       
+let elapsedMinutes = 0;
+let elapsedSeconds = 0;
 let timerInterval = null;
 let gameStarted = false;
+let currentScore = 0;
+
+let scoreModalElement = document.getElementById("score-modal");
+if (!scoreModalElement) {
+  console.error(
+    'Elemento "#score-modal" non trovato nel DOM: verifica che index.html contenga il markup del modal e che il browser non stia usando una versione in cache.',
+  );
+}
+let scoreModal = scoreModalElement ? new bootstrap.Modal(scoreModalElement) : null;
+let modalTimeElement = document.getElementById("modal-time");
+let modalAttemptsElement = document.getElementById("modal-attempts");
+let modalScoreElement = document.getElementById("modal-score");
+let playerNameInput = document.getElementById("player-name");
+let saveScoreBtn = document.getElementById("save-score-btn");
+let leaderboardElement = document.getElementById("leaderboard");
 
 document.getElementById("start-game").addEventListener("click", startGame);
 document.getElementById("reset-game").addEventListener("click", resetGame);
@@ -46,6 +65,7 @@ document.getElementById("toggle-settings").addEventListener("click", () => {
 });
 numShipsInput.addEventListener("input", renderShipSizeInputs);
 gridSizeInput.addEventListener("input", renderShipSizeInputs);
+saveScoreBtn.addEventListener("click", handleSaveScore);
 
 renderShipSizeInputs();
 
@@ -130,6 +150,9 @@ function resetState() {
   timerInterval = null;
   ships = [];
   shipHits = 0;
+  totalShots = 0;
+  elapsedMinutes = 0;
+  elapsedSeconds = 0;
   gameStarted = false;
 }
 
@@ -256,8 +279,10 @@ function checkNave(elementId) {
     element.classList.contains("hit") ||
     element.classList.contains("disabled")
   ) {
-    return; // cella già colpita
+    return;
   }
+
+  totalShots++;
 
   if (element.classList.contains("ship")) {
     element.classList.add("hit");
@@ -268,7 +293,6 @@ function checkNave(elementId) {
     let ship = ships[shipIndex];
     ship.hits++;
 
-    // riempi la prossima casellina di anteprima per quella nave
     let preview = document.getElementById(
       `nave-preview-${shipIndex}-${ship.hits - 1}`,
     );
@@ -292,22 +316,76 @@ function checkWin() {
     messageElement.innerText = "Hai vinto! Flotta nemica distrutta.";
     clearInterval(timerInterval);
     gameStarted = false;
+
+    currentScore = calcolaPunteggio();
+    modalTimeElement.innerText = formatTime();
+    modalAttemptsElement.innerText = String(totalShots);
+    modalScoreElement.innerText = String(currentScore);
+    playerNameInput.value = "";
+    saveScoreBtn.disabled = false;
+    saveScoreBtn.innerText = "Salva punteggio";
+
+    if (scoreModal) {
+      scoreModal.show();
+    } else {
+      console.error('Impossibile aprire il modal punteggio: elemento "#score-modal" mancante.');
+    }
+  }
+}
+
+async function handleSaveScore() {
+  let nome = playerNameInput.value.trim();
+  if (!nome) {
+    playerNameInput.classList.add("is-invalid");
+    playerNameInput.focus();
+    return;
+  }
+  playerNameInput.classList.remove("is-invalid");
+
+  saveScoreBtn.disabled = true;
+  saveScoreBtn.innerText = "Salvataggio...";
+
+  try {
+    await salvaPunteggio(nome, currentScore);
+    if (scoreModal) scoreModal.hide();
+  } catch (error) {
+    console.error("Errore nel salvataggio del punteggio:", error);
+    saveScoreBtn.disabled = false;
+    saveScoreBtn.innerText = "Salva punteggio";
   }
 }
 
 function startTimer() {
-  let minutes = 0;
-  let seconds = 0;
+  elapsedMinutes = 0;
+  elapsedSeconds = 0;
   const timerElement = document.getElementById("timer");
 
   timerInterval = setInterval(() => {
-    seconds++;
-    if (seconds === 60) {
-      minutes++;
-      seconds = 0;
+    elapsedSeconds++;
+    if (elapsedSeconds === 60) {
+      elapsedMinutes++;
+      elapsedSeconds = 0;
     }
-    timerElement.innerHTML = `<span id="min">${String(minutes).padStart(2, "0")}</span>:<span id="sec">${String(seconds).padStart(2, "0")}</span>`;
+    timerElement.innerHTML = `<span id="min">${String(elapsedMinutes).padStart(2, "0")}</span>:<span id="sec">${String(elapsedSeconds).padStart(2, "0")}</span>`;
   }, 1000);
+}
+
+function calcolaPunteggio() {
+  let difficultyBase = gridSize * 20 + totLenNavi * 30 + ships.length * 20;
+
+  let minAttempts = totLenNavi; 
+  let extraAttempts = Math.max(0, totalShots - minAttempts);
+  let attemptsPenalty = extraAttempts * 15;
+
+  let timeInSeconds = elapsedMinutes * 60 + elapsedSeconds;
+  let timePenalty = timeInSeconds * 3;
+
+  let score = Math.round(difficultyBase - attemptsPenalty - timePenalty);
+  return Math.max(0, score);
+}
+
+function formatTime() {
+  return `${String(elapsedMinutes).padStart(2, "0")}:${String(elapsedSeconds).padStart(2, "0")}`;
 }
 
 
@@ -321,16 +399,44 @@ async function salvaPunteggio(nome, punteggio){
 }
 
 
-const leaderboard = query(ref(db, 'leaderboard'), orderByChild('punteggio'), limitToLast(10));
-onValue(leaderboard, (snapshot) => {
-  const leaderboardElement = document.getElementById('leaderboard');
-  leaderboardElement.innerHTML = ''; 
+const leaderboardQuery = query(ref(db, "leaderboard"), orderByChild("punteggio"), limitToLast(10));
+onValue(leaderboardQuery, (snapshot) => {
+  leaderboardElement.innerHTML = "";
 
+  let entries = [];
   snapshot.forEach((childSnapshot) => {
-    const childData = childSnapshot.val();
-    const leaderboardEntry = document.createElement('div');
-    leaderboardEntry.classList.add('leaderboard-entry');
-    leaderboardEntry.innerText = `${childData.nome}: ${childData.punteggio}`;
+    entries.push(childSnapshot.val());
+  });
+
+  if (entries.length === 0) {
+    let empty = document.createElement("p");
+    empty.id = "leaderboard-empty";
+    empty.innerText = "Nessun punteggio ancora registrato.";
+    leaderboardElement.appendChild(empty);
+    return;
+  }
+
+  entries.reverse();
+
+  entries.forEach((entry, index) => {
+    let leaderboardEntry = document.createElement("div");
+    leaderboardEntry.classList.add("leaderboard-entry");
+
+    let rank = document.createElement("span");
+    rank.classList.add("leaderboard-rank");
+    rank.innerText = `${index + 1}.`;
+
+    let name = document.createElement("span");
+    name.classList.add("leaderboard-name");
+    name.innerText = entry.nome;
+
+    let score = document.createElement("span");
+    score.classList.add("leaderboard-score");
+    score.innerText = entry.punteggio;
+
+    leaderboardEntry.appendChild(rank);
+    leaderboardEntry.appendChild(name);
+    leaderboardEntry.appendChild(score);
     leaderboardElement.appendChild(leaderboardEntry);
   });
 });

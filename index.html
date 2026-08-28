@@ -48,6 +48,40 @@
             <div id="ships-list"></div>
         </div>
     </div>
+
+    <div id="leaderboard-wrapper">
+      <h2>Classifica</h2>
+      <div id="leaderboard">
+        <p id="leaderboard-empty">Nessun punteggio ancora registrato.</p>
+      </div>
+    </div>
+
+    <!-- Modal punteggio di fine partita -->
+    <div class="modal fade" id="score-modal" tabindex="-1" aria-labelledby="score-modal-label" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="score-modal-label">Flotta nemica distrutta!</h5>
+          </div>
+          <div class="modal-body">
+            <div class="score-summary">
+              <p>Tempo impiegato: <strong id="modal-time">00:00</strong></p>
+              <p>Tentativi totali: <strong id="modal-attempts">0</strong></p>
+              <p>Punteggio: <strong id="modal-score">0</strong></p>
+            </div>
+            <div class="mb-3">
+              <label for="player-name" class="form-label">Inserisci il tuo nome</label>
+              <input type="text" id="player-name" class="form-control" maxlength="20" placeholder="Ammiraglio..." />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Chiudi</button>
+            <button type="button" class="btn btn-success" id="save-score-btn">Salva punteggio</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
     <script type="module" src="script.js"></script>
   </body>
