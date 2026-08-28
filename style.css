@@ -196,3 +196,86 @@ p {
 .nave-preview.hit {
     background-color: #e63946;
 }
+
+#leaderboard-wrapper {
+    max-width: 420px;
+    margin: 30px auto 0 auto;
+    background-color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    padding: 16px 20px;
+}
+
+#leaderboard-wrapper h2 {
+    color: #1b3a4b;
+    font-size: 18px;
+    text-align: center;
+    margin: 0 0 10px 0;
+}
+
+#leaderboard-empty {
+    text-align: center;
+    font-weight: normal;
+    margin: 0;
+}
+
+.leaderboard-entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 4px;
+    border-top: 1px solid #eee;
+}
+
+.leaderboard-rank {
+    width: 22px;
+    font-weight: bold;
+    color: #1b6ca8;
+}
+
+.leaderboard-name {
+    flex: 1;
+    color: #333;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.leaderboard-score {
+    font-weight: bold;
+    color: #e63946;
+}
+
+.score-summary p {
+    margin: 4px 0;
+    font-weight: normal;
+    font-size: 15px;
+}
+
+.score-summary strong {
+    color: #1b3a4b;
+}
+
+#user-greeting {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 4px;
+}
+
+#user-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+#user-name {
+    font-weight: bold;
+    color: #1b3a4b;
+    font-size: 14px;
+}
+
+#modal-signin-hint {
+    color: #e63946;
+}
