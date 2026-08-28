@@ -4,10 +4,12 @@ let lenNavi = [1, 2, 3, 4, 5];
 let messageElement = document.getElementById("message");
 let hitNavi = 0;
 let totLenNavi = 15;
+let hitsElement = document.getElementById("hits");  
 
 document.getElementById("start-game").addEventListener("click", function () {
   drawGrid();
   setNavi();
+  startTimer();
 });
 
 function drawGrid() {
@@ -75,16 +77,28 @@ function setNavi() {
 }
 
 function checkNave(elementId) {
+  let element = document.getElementById(elementId);
   let hit = false;
-  if (document.getElementById(elementId).classList.contains("ship")) {
+  if (element.classList.contains("ship")) {
     hit = true;
-    document.getElementById(elementId).classList.add("hit");
   }
   if (hit) {
+    if (element.classList.contains('disabled') || element.classList.contains('hit')){
+      return; 
+    }
     messageElement.innerText = "Colpito!";
     hitNavi++;
+    hitsElement.innerText = `Hit: ${hitNavi}`;
+    element.classList.add("hit");
+    
   } else {
+    if (element.classList.contains('disabled') || element.classList.contains('hit')){ {
+      return;
+    }
     messageElement.innerText = "Miss!";
+    hitNavi++;
+    hitsElement.innerText = `Hit: ${hitNavi}`;
+    element.classList.add("disabled");
   }
 }
 
@@ -92,4 +106,19 @@ function checkWin() {
   if (hitNavi === totLenNavi) {
     messageElement.innerText = "Hai vinto!";
   }
+}
+
+function startTimer() {
+  let minutes = 0;
+  let seconds = 0;
+  const timerElement = document.getElementById("timer");
+
+  setInterval(() => {
+    seconds++;
+    if (seconds === 60) {
+      minutes++;
+      seconds = 0;
+    }
+    timerElement.innerHTML = `<span id="min">${String(minutes).padStart(2, '0')}</span>:<span id="sec">${String(seconds).padStart(2, '0')}</span>`;
+  }, 1000);
 }

@@ -42,6 +42,10 @@ p {
     background-color: red;
 }
 
+.disabled {
+    background-color: lightgray;
+}
+
 #game {
     display: flex;
     justify-content: center;
