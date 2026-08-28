@@ -1,23 +1,86 @@
 let gridSize = 8;
 let lenNavi = [1, 2, 3, 4, 5];
-let totLenNavi = lenNavi.reduce((sum, len) => sum + len, 0);
+let totLenNavi = 15;
 
 let messageElement = document.getElementById("message");
 let hitsElement = document.getElementById("hits");
 let shipsListElement = document.getElementById("ships-list");
+let settingsPanel = document.getElementById("settings-panel");
+let settingsError = document.getElementById("settings-error");
+let numShipsInput = document.getElementById("num-ships");
+let gridSizeInput = document.getElementById("grid-size");
+let shipSizesInputs = document.getElementById("ship-sizes-inputs");
 
-let ships = [];     
-let shipHits = 0;  
+let ships = [];  
+let shipHits = 0;       
 let timerInterval = null;
 let gameStarted = false;
 
 document.getElementById("start-game").addEventListener("click", startGame);
 document.getElementById("reset-game").addEventListener("click", resetGame);
+document.getElementById("toggle-settings").addEventListener("click", () => {
+  settingsPanel.classList.toggle("visible");
+});
+numShipsInput.addEventListener("input", renderShipSizeInputs);
+gridSizeInput.addEventListener("input", renderShipSizeInputs);
+
+renderShipSizeInputs(); 
+
+function renderShipSizeInputs() {
+  let count = clamp(parseInt(numShipsInput.value) || 1, 1, 6);
+  numShipsInput.value = count;
+  let maxLen = clamp(parseInt(gridSizeInput.value) || 8, 5, 12);
+
+  let existing = shipSizesInputs.querySelectorAll("input").length;
+  shipSizesInputs.innerHTML = "";
+
+  for (let i = 0; i < count; i++) {
+    let wrap = document.createElement("div");
+    wrap.classList.add("ship-size-item");
+
+    let label = document.createElement("span");
+    label.innerText = `Nave ${i + 1}`;
+
+    let input = document.createElement("input");
+    input.type = "number";
+    input.min = "1";
+    input.max = String(maxLen);
+    input.value = String(Math.min(i + 1, maxLen));
+    input.classList.add("ship-size-input");
+
+    wrap.appendChild(label);
+    wrap.appendChild(input);
+    shipSizesInputs.appendChild(wrap);
+  }
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function readSettings() {
+  gridSize = clamp(parseInt(gridSizeInput.value) || 8, 5, 12);
+  gridSizeInput.value = gridSize;
+
+  let sizeInputs = shipSizesInputs.querySelectorAll(".ship-size-input");
+  lenNavi = Array.from(sizeInputs).map((input) => clamp(parseInt(input.value) || 1, 1, gridSize));
+  totLenNavi = lenNavi.reduce((sum, len) => sum + len, 0);
+}
 
 function startGame() {
+  settingsError.innerText = "";
+  readSettings();
   resetState();
   drawGrid();
-  setNavi();
+
+  let placed = setNavi();
+  if (!placed) {
+    document.getElementById("grid-wrapper").innerHTML = "";
+    settingsError.innerText = "Le navi scelte non entrano nella griglia: riducile o ingrandisci la griglia.";
+    settingsPanel.classList.add("visible");
+    return;
+  }
+
   setMenu();
   startTimer();
   gameStarted = true;
@@ -29,6 +92,7 @@ function resetGame() {
   document.getElementById("grid-wrapper").innerHTML = "";
   document.getElementById("menu").classList.remove("visible");
   shipsListElement.innerHTML = "";
+  settingsError.innerText = "";
   messageElement.innerText = 'Premi "Inizia partita" per giocare!';
   hitsElement.innerText = "Colpi a segno: 0";
   document.getElementById("timer").innerHTML = `<span id="min">00</span>:<span id="sec">00</span>`;
@@ -45,6 +109,7 @@ function resetState() {
 function drawGrid() {
   let parent = document.getElementById("grid-wrapper");
   parent.innerHTML = "";
+  parent.style.gridTemplateColumns = `repeat(${gridSize}, 45px)`;
 
   for (let i = 0; i < gridSize; i++) {
     for (let j = 0; j < gridSize; j++) {
@@ -65,8 +130,14 @@ function setNavi() {
   ships = lenNavi.map((len) => ({ length: len, hits: 0, sunk: false, cells: [] }));
 
   let placedShips = 0;
+  let attempts = 0;
+  let maxAttempts = 4000;
 
   while (placedShips < ships.length) {
+    if (attempts++ > maxAttempts) {
+      return false; 
+    }
+
     let len = ships[placedShips].length;
     let x = Math.floor(Math.random() * gridSize);
     let y = Math.floor(Math.random() * gridSize);
@@ -113,6 +184,8 @@ function setNavi() {
       placedShips++;
     }
   }
+
+  return true;
 }
 
 function setMenu() {
