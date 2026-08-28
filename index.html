@@ -16,9 +16,19 @@
       <button class="btn btn-outline-success me-2" type="button" id="start-game">
         Inizia partita
       </button>
-      <button class="btn btn-outline-danger" type="button" id="reset-game">
+      <button class="btn btn-outline-danger me-2" type="button" id="reset-game">
         Reset
       </button>
+      <button class="btn btn-outline-primary" type="button" id="google-signin-btn">
+        Accedi con Google
+      </button>
+      <span id="user-greeting" class="d-none">
+        <img id="user-avatar" src="" alt="" />
+        <span id="user-name"></span>
+        <button class="btn btn-sm btn-outline-secondary" type="button" id="google-signout-btn">
+          Esci
+        </button>
+      </span>
     </div>
 
     <div id="settings-panel">
@@ -70,12 +80,16 @@
               <p>Punteggio: <strong id="modal-score">0</strong></p>
             </div>
             <div class="mb-3">
-              <label for="player-name" class="form-label">Inserisci il tuo nome</label>
+              <label for="player-name" class="form-label">Il tuo nome</label>
               <input type="text" id="player-name" class="form-control" maxlength="20" placeholder="Ammiraglio..." />
+              <div id="modal-signin-hint" class="form-text d-none">
+                Accedi con Google per salvare il punteggio con il tuo nome.
+              </div>
             </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Chiudi</button>
+            <button type="button" class="btn btn-outline-primary d-none" id="modal-google-signin-btn">Accedi con Google</button>
             <button type="button" class="btn btn-success" id="save-score-btn">Salva punteggio</button>
           </div>
         </div>

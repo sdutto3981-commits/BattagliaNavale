@@ -1,6 +1,14 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import { getDatabase, ref, push, set, query, orderByChild, limitToLast, onValue } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+import {
+  getAuth,
+  signInAnonymously,
+  GoogleAuthProvider,
+  signInWithPopup,
+  linkWithPopup,
+  signOut,
+  onAuthStateChanged,
+} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 
 
 const firebaseConfig = {
@@ -17,10 +25,32 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
 
 await signInAnonymously(auth);
 
 console.log("Signed in anonymously: ", auth.currentUser.uid);
+
+async function signInWithGoogle() {
+  try {
+    if (auth.currentUser && auth.currentUser.isAnonymous) {
+      await linkWithPopup(auth.currentUser, googleProvider);
+    } else {
+      await signInWithPopup(auth, googleProvider);
+    }
+  } catch (error) {
+    if (error.code === "auth/credential-already-in-use") {
+      await signInWithPopup(auth, googleProvider);
+    } else if (error.code !== "auth/popup-closed-by-user") {
+      console.error("Errore durante l'accesso con Google:", error);
+    }
+  }
+}
+
+async function handleGoogleSignOut() {
+  await signOut(auth);
+  await signInAnonymously(auth); 
+}
 
 let gridSize = 8;
 let lenNavi = [1, 2, 3, 4, 5];
@@ -58,6 +88,14 @@ let playerNameInput = document.getElementById("player-name");
 let saveScoreBtn = document.getElementById("save-score-btn");
 let leaderboardElement = document.getElementById("leaderboard");
 
+let googleSigninBtn = document.getElementById("google-signin-btn");
+let googleSignoutBtn = document.getElementById("google-signout-btn");
+let userGreeting = document.getElementById("user-greeting");
+let userAvatar = document.getElementById("user-avatar");
+let userNameElement = document.getElementById("user-name");
+let modalGoogleSigninBtn = document.getElementById("modal-google-signin-btn");
+let modalSigninHint = document.getElementById("modal-signin-hint");
+
 document.getElementById("start-game").addEventListener("click", startGame);
 document.getElementById("reset-game").addEventListener("click", resetGame);
 document.getElementById("toggle-settings").addEventListener("click", () => {
@@ -66,6 +104,37 @@ document.getElementById("toggle-settings").addEventListener("click", () => {
 numShipsInput.addEventListener("input", renderShipSizeInputs);
 gridSizeInput.addEventListener("input", renderShipSizeInputs);
 saveScoreBtn.addEventListener("click", handleSaveScore);
+googleSigninBtn.addEventListener("click", signInWithGoogle);
+googleSignoutBtn.addEventListener("click", handleGoogleSignOut);
+modalGoogleSigninBtn.addEventListener("click", signInWithGoogle);
+
+onAuthStateChanged(auth, updateAuthUI);
+
+function updateAuthUI(user) {
+  let isGoogleUser = Boolean(user && !user.isAnonymous);
+
+  if (isGoogleUser) {
+    googleSigninBtn.classList.add("d-none");
+    userGreeting.classList.remove("d-none");
+    userAvatar.src = user.photoURL || "";
+    userNameElement.innerText = user.displayName || user.email || "Ammiraglio";
+
+    playerNameInput.value = user.displayName || "";
+    playerNameInput.disabled = true;
+    modalSigninHint.classList.add("d-none");
+    modalGoogleSigninBtn.classList.add("d-none");
+    saveScoreBtn.classList.remove("d-none");
+  } else {
+    googleSigninBtn.classList.remove("d-none");
+    userGreeting.classList.add("d-none");
+
+    playerNameInput.value = "";
+    playerNameInput.disabled = false;
+    modalSigninHint.classList.remove("d-none");
+    modalGoogleSigninBtn.classList.remove("d-none");
+    saveScoreBtn.classList.add("d-none");
+  }
+}
 
 renderShipSizeInputs();
 
@@ -279,7 +348,7 @@ function checkNave(elementId) {
     element.classList.contains("hit") ||
     element.classList.contains("disabled")
   ) {
-    return;
+    return; 
   }
 
   totalShots++;
@@ -321,9 +390,9 @@ function checkWin() {
     modalTimeElement.innerText = formatTime();
     modalAttemptsElement.innerText = String(totalShots);
     modalScoreElement.innerText = String(currentScore);
-    playerNameInput.value = "";
     saveScoreBtn.disabled = false;
     saveScoreBtn.innerText = "Salva punteggio";
+    updateAuthUI(auth.currentUser); 
 
     if (scoreModal) {
       scoreModal.show();
@@ -334,19 +403,20 @@ function checkWin() {
 }
 
 async function handleSaveScore() {
-  let nome = playerNameInput.value.trim();
-  if (!nome) {
-    playerNameInput.classList.add("is-invalid");
-    playerNameInput.focus();
+  let user = auth.currentUser;
+  if (!user || user.isAnonymous) {
+    modalSigninHint.classList.remove("d-none");
+    modalGoogleSigninBtn.classList.remove("d-none");
     return;
   }
-  playerNameInput.classList.remove("is-invalid");
+
+  let nome = user.displayName || "Ammiraglio";
 
   saveScoreBtn.disabled = true;
   saveScoreBtn.innerText = "Salvataggio...";
 
   try {
-    await salvaPunteggio(nome, currentScore);
+    await salvaPunteggio(nome, currentScore, user.uid);
     if (scoreModal) scoreModal.hide();
   } catch (error) {
     console.error("Errore nel salvataggio del punteggio:", error);
@@ -370,10 +440,11 @@ function startTimer() {
   }, 1000);
 }
 
+
 function calcolaPunteggio() {
   let difficultyBase = gridSize * 20 + totLenNavi * 30 + ships.length * 20;
 
-  let minAttempts = totLenNavi; 
+  let minAttempts = totLenNavi;
   let extraAttempts = Math.max(0, totalShots - minAttempts);
   let attemptsPenalty = extraAttempts * 15;
 
@@ -389,12 +460,13 @@ function formatTime() {
 }
 
 
-async function salvaPunteggio(nome, punteggio){
-  const nuovoPunteggio = push(ref(db, 'leaderboard'));
+async function salvaPunteggio(nome, punteggio, uid) {
+  const nuovoPunteggio = push(ref(db, "leaderboard"));
   await set(nuovoPunteggio, {
     nome: nome,
     punteggio: punteggio,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    uid: uid,
   });
 }
 

@@ -255,3 +255,27 @@ p {
 .score-summary strong {
     color: #1b3a4b;
 }
+
+#user-greeting {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 4px;
+}
+
+#user-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+#user-name {
+    font-weight: bold;
+    color: #1b3a4b;
+    font-size: 14px;
+}
+
+#modal-signin-hint {
+    color: #e63946;
+}
