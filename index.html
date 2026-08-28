@@ -13,22 +13,26 @@
   </head>
   <body>
     <h1>Battaglia Navale</h1>
-    <form class="nav-item">
+    <div class="controls">
       <button class="btn btn-outline-success me-2" type="button" id="start-game">
         Inizia partita
       </button>
-    </form>
+      <button class="btn btn-outline-danger" type="button" id="reset-game">
+        Reset
+      </button>
+    </div>
     <div id="game">
         <div id="grid-wrapper">
 
         </div>
         <div id="menu">
-            <p id="message">Start!</p>
-            <p id="hits">Hit: 0</p>
+            <p id="message">Premi "Inizia partita" per giocare!</p>
+            <p id="hits">Colpi a segno: 0</p>
             <p id="timer"><span id="min">00</span>:<span id="sec">00</span></p>
+            <div id="ships-list"></div>
         </div>
     </div>
-    
+
     <script src="script.js"></script>
     <script
       src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
