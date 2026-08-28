@@ -1,60 +1,154 @@
-header{
-    color: white;
-    padding: 5px 0;
-    text-align: center;
-}
-
 body {
     font-family: Arial, sans-serif;
-    background-color: #f0f0f0;
+    background-color: #eef4f8;
     margin: 0;
     padding: 20px;
 }
 
 h1 {
-    color: #333;
+    color: #1b3a4b;
+    text-align: center;
 }
 
 p {
     color: #666;
 }
 
+.controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+#settings-panel {
+    display: none;
+    max-width: 420px;
+    margin: 0 auto 20px auto;
+    background-color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    padding: 16px 20px;
+}
+
+#settings-panel.visible {
+    display: block;
+}
+
+.setting-group {
+    margin-bottom: 14px;
+}
+
+.setting-group label {
+    display: block;
+    font-weight: bold;
+    color: #1b3a4b;
+    margin-bottom: 6px;
+}
+
+.setting-group input[type="number"] {
+    width: 70px;
+    padding: 4px 8px;
+    border: 1px solid #cfd8dc;
+    border-radius: 6px;
+}
+
+#ship-sizes-inputs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.ship-size-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 13px;
+    color: #444;
+}
+
+.ship-size-item input {
+    margin-top: 4px;
+    width: 55px;
+}
+
+#settings-error {
+    color: #e63946;
+    font-weight: bold;
+    font-size: 14px;
+    margin: 6px 0 0 0;
+}
+
 #grid-wrapper {
   display: grid;
-  grid-template-columns: repeat(8, 45px);
-  gap: 20px;
+  gap: 6px;
   padding: 20px;
   justify-content: center;
+  background-color: #1b6ca8;
+  border-radius: 14px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
 }
 
-.grid-element{
-    width: 50px;
-    height: 50px;
-    border-radius: 10px;
-    background-color: lightblue;
+.grid-element {
+    width: 45px;
+    height: 45px;
+    border-radius: 8px;
+    background-color: #6fb7e0;
+    cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.1s ease;
 }
 
+.grid-element:hover {
+    background-color: #8fcaea;
+    transform: scale(1.05);
+}
+
+/* Le navi restano invisibili finché non vengono colpite */
 .ship {
-    background-color: lightblue;
+    background-color: #6fb7e0;
 }
 
 .hit {
-    background-color: red;
+    background-color: #e63946;
+    cursor: default;
+}
+
+.hit:hover {
+    background-color: #e63946;
+    transform: none;
+}
+
+.disabled {
+    background-color: #cfd8dc;
+    cursor: default;
+}
+
+.disabled:hover {
+    background-color: #cfd8dc;
+    transform: none;
 }
 
 #game {
     display: flex;
     justify-content: center;
-    gap: 100px;
+    flex-wrap: wrap;
+    gap: 60px;
     margin-top: 20px;
 }
 
-#menu{
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    width: 400px;
-    padding: 10px;
+#menu {
+    display: none;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    width: 320px;
+    padding: 16px;
     border-radius: 12px;
     text-align: center;
+    background-color: #fff;
+    height: fit-content;
+}
+
+#menu.visible {
+    display: block;
 }
 
 #menu p {
@@ -62,4 +156,43 @@ p {
     margin-top: 10px;
     text-align: center;
     font-size: large;
+}
+
+#message {
+    color: #1b3a4b;
+}
+
+.ship-row {
+    margin-top: 14px;
+    padding: 6px 0;
+    border-top: 1px solid #eee;
+    transition: opacity 0.2s ease;
+}
+
+.ship-row .ship-label {
+    font-size: 15px;
+    margin: 4px 0;
+    color: #444;
+}
+
+.ship-row.sunk .ship-label {
+    text-decoration: line-through;
+    color: #999;
+}
+
+.preview-wrap {
+    display: flex;
+    justify-content: center;
+    gap: 3px;
+}
+
+.nave-preview {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    background-color: #6fb7e0;
+}
+
+.nave-preview.hit {
+    background-color: #e63946;
 }
