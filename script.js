@@ -1,44 +1,14 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-import { getDatabase, ref, get, push, set, query, orderByChild, limitToLast, onValue } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 import {
-  getAuth,
-  signInAnonymously,
-  GoogleAuthProvider,
-  signInWithPopup,
-  linkWithPopup,
-  signOut,
-  onAuthStateChanged,
-} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+  getCurrentUser,
+  onAuthChange,
+  signInWithGoogle as firebaseSignInWithGoogle,
+  signOutToAnonymous,
+  getUsername,
+  saveUsername,
+  saveScore,
+  subscribeToLeaderboard,
+} from "./firebase.js";
 
-
-const firebaseConfig = {
-  apiKey: "AIzaSyDux-C2znjXzD1x-MR6t340GTgUhk6m9Ho",
-  authDomain: "battaglianavale-f9c34.firebaseapp.com",
-  databaseURL: "https://battaglianavale-f9c34-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "battaglianavale-f9c34",
-  storageBucket: "battaglianavale-f9c34.firebasestorage.app",
-  messagingSenderId: "359622454307",
-  appId: "1:359622454307:web:fcbd7f48ec3228198fd596",
-  measurementId: "G-KB1X9FH4QT",
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
-
-await signInAnonymously(auth);
-
-console.log(
-  "Utente attuale:",
-  auth.currentUser?.uid,
-  auth.currentUser?.isAnonymous ? "(anonimo)" : "(Google)",
-);
-
-/**
- * Mostra un messaggio d'errore vicino al pulsante Google, invece di lasciarlo
- * solo in console: gli errori di popup sono facili da non notare altrimenti.
- */
 function showGoogleAuthError(message) {
   let target = document.getElementById("google-auth-error");
   if (target) target.innerText = message;
@@ -52,36 +22,21 @@ function clearGoogleAuthError() {
 
 async function signInWithGoogle() {
   clearGoogleAuthError();
-  try {
-    if (auth.currentUser && auth.currentUser.isAnonymous) {
-      // Prova ad "agganciare" l'account Google a quello anonimo corrente
-      await linkWithPopup(auth.currentUser, googleProvider);
-    } else {
-      await signInWithPopup(auth, googleProvider);
-    }
-  } catch (error) {
-    if (error.code === "auth/credential-already-in-use") {
-      // Questo account Google è già registrato: accedo direttamente con quello
-      try {
-        await signInWithPopup(auth, googleProvider);
-      } catch (innerError) {
-        showGoogleAuthError("Accesso fallito: " + innerError.message);
-      }
-    } else if (error.code === "auth/popup-blocked") {
-      showGoogleAuthError("Il browser ha bloccato il popup: consenti i popup per questo sito e riprova.");
-    } else if (error.code === "auth/popup-closed-by-user") {
-      // L'utente ha chiuso il popup volontariamente: nessun errore da mostrare
-    } else if (error.code === "auth/unauthorized-domain") {
-      showGoogleAuthError("Questo dominio non è autorizzato su Firebase: aggiungilo in Authentication > Settings > Authorized domains.");
-    } else {
-      showGoogleAuthError("Errore durante l'accesso con Google: " + error.message);
-    }
+  const result = await firebaseSignInWithGoogle();
+  if (result.success) return;
+
+  if (result.errorCode === "auth/popup-blocked") {
+    showGoogleAuthError("Il browser ha bloccato il popup: consenti i popup per questo sito e riprova.");
+  } else if (result.errorCode === "auth/popup-closed-by-user") {
+  } else if (result.errorCode === "auth/unauthorized-domain") {
+    showGoogleAuthError("Questo dominio non è autorizzato su Firebase: aggiungilo in Authentication > Settings > Authorized domains.");
+  } else {
+    showGoogleAuthError("Errore durante l'accesso con Google: " + (result.errorMessage || ""));
   }
 }
 
 async function handleGoogleSignOut() {
-  await signOut(auth);
-  await signInAnonymously(auth); // torna in modalità ospite per continuare a leggere la classifica
+  await signOutToAnonymous();
 }
 
 let gridSize = 8;
@@ -89,7 +44,7 @@ let lenNavi = [1, 2, 3, 4, 5];
 let totLenNavi = 15;
 
 let messageElement = document.getElementById("message");
-let hitsElement = document.getElementById("hits");
+let hitsElement = document.getElementById("hits-value");
 let shipsListElement = document.getElementById("ships-list");
 let settingsPanel = document.getElementById("settings-panel");
 let settingsError = document.getElementById("settings-error");
@@ -99,7 +54,7 @@ let shipSizesInputs = document.getElementById("ship-sizes-inputs");
 
 let ships = [];
 let shipHits = 0;
-let totalShots = 0;       // colpi + tiri a vuoto
+let totalShots = 0;    
 let elapsedMinutes = 0;
 let elapsedSeconds = 0;
 let timerInterval = null;
@@ -134,14 +89,9 @@ let usernameInput = document.getElementById("username-input");
 let usernameError = document.getElementById("username-error");
 let saveUsernameBtn = document.getElementById("save-username-btn");
 
-let currentUsername = null;   // username personalizzato caricato da /users/{uid}
-let usernameCheckedForUid = null; // evita di ricontrollare più volte nella stessa sessione
+let currentUsername = null;   
+let usernameCheckedForUid = null;
 
-/**
- * Aggiunge un event listener solo se l'elemento esiste davvero nel DOM.
- * Evita che un elemento mancante (HTML disallineato rispetto a script.js,
- * o pagina in cache) faccia crashare l'intero script.
- */
 function safeListen(element, elementLabel, event, handler) {
   if (!element) {
     console.error(`Elemento "${elementLabel}" non trovato nel DOM: controlla che index.html sia aggiornato.`);
@@ -163,7 +113,7 @@ safeListen(googleSignoutBtn, "#google-signout-btn", "click", handleGoogleSignOut
 safeListen(modalGoogleSigninBtn, "#modal-google-signin-btn", "click", signInWithGoogle);
 safeListen(saveUsernameBtn, "#save-username-btn", "click", handleSaveUsername);
 
-onAuthStateChanged(auth, (user) => {
+onAuthChange((user) => {
   updateAuthUI(user);
 
   if (user && !user.isAnonymous) {
@@ -174,18 +124,14 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-/**
- * Controlla se l'utente Google ha già uno username salvato in /users/{uid}.
- * Se non ce l'ha (primo accesso), apre il modal per chiederglielo.
- */
 async function ensureUsername(user) {
   if (usernameCheckedForUid === user.uid) return;
   usernameCheckedForUid = user.uid;
 
   try {
-    const snapshot = await get(ref(db, `users/${user.uid}`));
-    if (snapshot.exists() && snapshot.val().username) {
-      currentUsername = snapshot.val().username;
+    const username = await getUsername(user.uid);
+    if (username) {
+      currentUsername = username;
       updateAuthUI(user);
     } else {
       currentUsername = null;
@@ -203,7 +149,7 @@ async function ensureUsername(user) {
 }
 
 async function handleSaveUsername() {
-  let user = auth.currentUser;
+  let user = getCurrentUser();
   if (!user || !usernameInput) return;
 
   let username = usernameInput.value.trim();
@@ -213,14 +159,10 @@ async function handleSaveUsername() {
   }
 
   saveUsernameBtn.disabled = true;
-  saveUsernameBtn.innerText = "Salvataggio...";
+  saveUsernameBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvataggio...';
 
   try {
-    await set(ref(db, `users/${user.uid}`), {
-      username: username,
-      email: user.email || null,
-      updatedAt: Date.now(),
-    });
+    await saveUsername(user, username);
     currentUsername = username;
     if (usernameError) usernameError.innerText = "";
     if (usernameModal) usernameModal.hide();
@@ -230,7 +172,7 @@ async function handleSaveUsername() {
     if (usernameError) usernameError.innerText = "Errore durante il salvataggio, riprova.";
   } finally {
     saveUsernameBtn.disabled = false;
-    saveUsernameBtn.innerText = "Conferma";
+    saveUsernameBtn.innerHTML = '<i class="fa-solid fa-check"></i> Conferma';
   }
 }
 
@@ -334,7 +276,7 @@ function resetGame() {
   settingsError.innerText = "";
   messageElement.innerText = 'Premi "Inizia partita" per giocare!';
   hitsElement.innerText = "Colpi a segno: 0";
-  document.getElementById("timer").innerHTML =
+  document.getElementById("timer-value").innerHTML =
     `<span id="min">00</span>:<span id="sec">00</span>`;
 }
 
@@ -472,7 +414,7 @@ function checkNave(elementId) {
     element.classList.contains("hit") ||
     element.classList.contains("disabled")
   ) {
-    return; // cella già colpita
+    return;
   }
 
   totalShots++;
@@ -486,7 +428,6 @@ function checkNave(elementId) {
     let ship = ships[shipIndex];
     ship.hits++;
 
-    // riempi la prossima casellina di anteprima per quella nave
     let preview = document.getElementById(
       `nave-preview-${shipIndex}-${ship.hits - 1}`,
     );
@@ -516,8 +457,8 @@ function checkWin() {
     modalAttemptsElement.innerText = String(totalShots);
     modalScoreElement.innerText = String(currentScore);
     saveScoreBtn.disabled = false;
-    saveScoreBtn.innerText = "Salva punteggio";
-    updateAuthUI(auth.currentUser); // sincronizza il modal con lo stato di login attuale
+    saveScoreBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Salva punteggio';
+    updateAuthUI(getCurrentUser());
 
     if (scoreModal) {
       scoreModal.show();
@@ -528,7 +469,7 @@ function checkWin() {
 }
 
 async function handleSaveScore() {
-  let user = auth.currentUser;
+  let user = getCurrentUser();
   if (!user || user.isAnonymous) {
     modalSigninHint.classList.remove("d-none");
     modalGoogleSigninBtn.classList.remove("d-none");
@@ -538,22 +479,22 @@ async function handleSaveScore() {
   let nome = playerNameInput.value.trim() || currentUsername || user.displayName || "Ammiraglio";
 
   saveScoreBtn.disabled = true;
-  saveScoreBtn.innerText = "Salvataggio...";
+  saveScoreBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvataggio...';
 
   try {
-    await salvaPunteggio(nome, currentScore, user.uid);
+    await saveScore(nome, currentScore, user.uid);
     if (scoreModal) scoreModal.hide();
   } catch (error) {
     console.error("Errore nel salvataggio del punteggio:", error);
     saveScoreBtn.disabled = false;
-    saveScoreBtn.innerText = "Salva punteggio";
+    saveScoreBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Salva punteggio';
   }
 }
 
 function startTimer() {
   elapsedMinutes = 0;
   elapsedSeconds = 0;
-  const timerElement = document.getElementById("timer");
+  const timerElement = document.getElementById("timer-value");
 
   timerInterval = setInterval(() => {
     elapsedSeconds++;
@@ -565,14 +506,6 @@ function startTimer() {
   }, 1000);
 }
 
-/**
- * Calcola il punteggio finale in base a:
- * - difficoltà della partita (dimensione griglia, numero e lunghezza delle navi)
- * - precisione (tentativi sprecati rispetto al minimo teorico)
- * - tempo impiegato
- *
- * Punteggio = base di difficoltà - penalità tentativi - penalità tempo, mai negativo.
- */
 function calcolaPunteggio() {
   let difficultyBase = gridSize * 20 + totLenNavi * 30 + ships.length * 20;
 
@@ -592,25 +525,8 @@ function formatTime() {
 }
 
 
-async function salvaPunteggio(nome, punteggio, uid) {
-  const nuovoPunteggio = push(ref(db, "leaderboard"));
-  await set(nuovoPunteggio, {
-    nome: nome,
-    punteggio: punteggio,
-    timestamp: Date.now(),
-    uid: uid,
-  });
-}
-
-
-const leaderboardQuery = query(ref(db, "leaderboard"), orderByChild("punteggio"), limitToLast(10));
-onValue(leaderboardQuery, (snapshot) => {
+subscribeToLeaderboard((entries) => {
   leaderboardElement.innerHTML = "";
-
-  let entries = [];
-  snapshot.forEach((childSnapshot) => {
-    entries.push(childSnapshot.val());
-  });
 
   if (entries.length === 0) {
     let empty = document.createElement("p");
@@ -619,9 +535,6 @@ onValue(leaderboardQuery, (snapshot) => {
     leaderboardElement.appendChild(empty);
     return;
   }
-
-  // limitToLast restituisce i punteggi più alti in ordine crescente: li inverto
-  entries.reverse();
 
   entries.forEach((entry, index) => {
     let leaderboardEntry = document.createElement("div");

@@ -287,3 +287,16 @@ p {
 #modal-signin-hint {
     color: #e63946;
 }
+.controls button i,
+.modal-footer button i,
+.setting-group label i,
+#leaderboard-wrapper h2 i,
+h1 i {
+    margin-right: 4px;
+}
+
+.score-summary p i {
+    width: 16px;
+    text-align: center;
+    color: #1b6ca8;
+}
