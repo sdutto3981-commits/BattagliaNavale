@@ -1,71 +1,42 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-import { getDatabase, ref, push, set, query, orderByChild, limitToLast, onValue } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 import {
-  getAuth,
-  signInAnonymously,
-  GoogleAuthProvider,
-  signInWithRedirect,
-  linkWithRedirect,
-  getRedirectResult,
-  signOut,
-  onAuthStateChanged,
-} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+  getCurrentUser,
+  onAuthChange,
+  signInWithGoogle as firebaseSignInWithGoogle,
+  signOutToAnonymous,
+  getUsername,
+  saveUsername,
+  saveScore,
+  subscribeToLeaderboard,
+} from "./firebase.js";
 
-
-const firebaseConfig = {
-  apiKey: "AIzaSyDux-C2znjXzD1x-MR6t340GTgUhk6m9Ho",
-  authDomain: "battaglianavale-f9c34.firebaseapp.com",
-  databaseURL: "https://battaglianavale-f9c34-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "battaglianavale-f9c34",
-  storageBucket: "battaglianavale-f9c34.firebasestorage.app",
-  messagingSenderId: "359622454307",
-  appId: "1:359622454307:web:fcbd7f48ec3228198fd596",
-  measurementId: "G-KB1X9FH4QT",
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
-
-try {
-  const redirectResult = await getRedirectResult(auth);
-  if (redirectResult) {
-    console.log("Accesso con Google completato:", redirectResult.user.displayName);
-  }
-} catch (error) {
-  if (error.code === "auth/credential-already-in-use") {
-    await signInWithRedirect(auth, googleProvider);
-  } else if (error.code) {
-    console.error("Errore nel completamento dell'accesso con Google:", error);
-  }
+function showGoogleAuthError(message) {
+  let target = document.getElementById("google-auth-error");
+  if (target) target.innerText = message;
+  console.error(message);
 }
 
-if (!auth.currentUser) {
-  await signInAnonymously(auth);
+function clearGoogleAuthError() {
+  let target = document.getElementById("google-auth-error");
+  if (target) target.innerText = "";
 }
-
-console.log(
-  "Utente attuale:",
-  auth.currentUser?.uid,
-  auth.currentUser?.isAnonymous ? "(anonimo)" : "(Google)",
-);
 
 async function signInWithGoogle() {
-  try {
-    if (auth.currentUser && auth.currentUser.isAnonymous) {
-      await linkWithRedirect(auth.currentUser, googleProvider);
-    } else {
-      await signInWithRedirect(auth, googleProvider);
-    }
-  } catch (error) {
-    console.error("Errore durante l'accesso con Google:", error);
+  clearGoogleAuthError();
+  const result = await firebaseSignInWithGoogle();
+  if (result.success) return;
+
+  if (result.errorCode === "auth/popup-blocked") {
+    showGoogleAuthError("Il browser ha bloccato il popup: consenti i popup per questo sito e riprova.");
+  } else if (result.errorCode === "auth/popup-closed-by-user") {
+  } else if (result.errorCode === "auth/unauthorized-domain") {
+    showGoogleAuthError("Questo dominio non è autorizzato su Firebase: aggiungilo in Authentication > Settings > Authorized domains.");
+  } else {
+    showGoogleAuthError("Errore durante l'accesso con Google: " + (result.errorMessage || ""));
   }
 }
 
 async function handleGoogleSignOut() {
-  await signOut(auth);
-  await signInAnonymously(auth); 
+  await signOutToAnonymous();
 }
 
 let gridSize = 8;
@@ -73,7 +44,7 @@ let lenNavi = [1, 2, 3, 4, 5];
 let totLenNavi = 15;
 
 let messageElement = document.getElementById("message");
-let hitsElement = document.getElementById("hits");
+let hitsElement = document.getElementById("hits-value");
 let shipsListElement = document.getElementById("ships-list");
 let settingsPanel = document.getElementById("settings-panel");
 let settingsError = document.getElementById("settings-error");
@@ -83,7 +54,7 @@ let shipSizesInputs = document.getElementById("ship-sizes-inputs");
 
 let ships = [];
 let shipHits = 0;
-let totalShots = 0; 
+let totalShots = 0;    
 let elapsedMinutes = 0;
 let elapsedSeconds = 0;
 let timerInterval = null;
@@ -112,19 +83,98 @@ let userNameElement = document.getElementById("user-name");
 let modalGoogleSigninBtn = document.getElementById("modal-google-signin-btn");
 let modalSigninHint = document.getElementById("modal-signin-hint");
 
-document.getElementById("start-game").addEventListener("click", startGame);
-document.getElementById("reset-game").addEventListener("click", resetGame);
-document.getElementById("toggle-settings").addEventListener("click", () => {
+let usernameModalElement = document.getElementById("username-modal");
+let usernameModal = usernameModalElement ? new bootstrap.Modal(usernameModalElement) : null;
+let usernameInput = document.getElementById("username-input");
+let usernameError = document.getElementById("username-error");
+let saveUsernameBtn = document.getElementById("save-username-btn");
+
+let currentUsername = null;   
+let usernameCheckedForUid = null;
+
+function safeListen(element, elementLabel, event, handler) {
+  if (!element) {
+    console.error(`Elemento "${elementLabel}" non trovato nel DOM: controlla che index.html sia aggiornato.`);
+    return;
+  }
+  element.addEventListener(event, handler);
+}
+
+safeListen(document.getElementById("start-game"), "#start-game", "click", startGame);
+safeListen(document.getElementById("reset-game"), "#reset-game", "click", resetGame);
+safeListen(document.getElementById("toggle-settings"), "#toggle-settings", "click", () => {
   settingsPanel.classList.toggle("visible");
 });
-numShipsInput.addEventListener("input", renderShipSizeInputs);
-gridSizeInput.addEventListener("input", renderShipSizeInputs);
-saveScoreBtn.addEventListener("click", handleSaveScore);
-googleSigninBtn.addEventListener("click", signInWithGoogle);
-googleSignoutBtn.addEventListener("click", handleGoogleSignOut);
-modalGoogleSigninBtn.addEventListener("click", signInWithGoogle);
+safeListen(numShipsInput, "#num-ships", "input", renderShipSizeInputs);
+safeListen(gridSizeInput, "#grid-size", "input", renderShipSizeInputs);
+safeListen(saveScoreBtn, "#save-score-btn", "click", handleSaveScore);
+safeListen(googleSigninBtn, "#google-signin-btn", "click", signInWithGoogle);
+safeListen(googleSignoutBtn, "#google-signout-btn", "click", handleGoogleSignOut);
+safeListen(modalGoogleSigninBtn, "#modal-google-signin-btn", "click", signInWithGoogle);
+safeListen(saveUsernameBtn, "#save-username-btn", "click", handleSaveUsername);
 
-onAuthStateChanged(auth, updateAuthUI);
+onAuthChange((user) => {
+  updateAuthUI(user);
+
+  if (user && !user.isAnonymous) {
+    ensureUsername(user);
+  } else {
+    currentUsername = null;
+    usernameCheckedForUid = null;
+  }
+});
+
+async function ensureUsername(user) {
+  if (usernameCheckedForUid === user.uid) return;
+  usernameCheckedForUid = user.uid;
+
+  try {
+    const username = await getUsername(user.uid);
+    if (username) {
+      currentUsername = username;
+      updateAuthUI(user);
+    } else {
+      currentUsername = null;
+      if (usernameInput) usernameInput.value = "";
+      if (usernameError) usernameError.innerText = "";
+      if (usernameModal) {
+        usernameModal.show();
+      } else {
+        console.error('Impossibile aprire il modal username: elemento "#username-modal" mancante.');
+      }
+    }
+  } catch (error) {
+    console.error("Errore nel recupero dello username:", error);
+  }
+}
+
+async function handleSaveUsername() {
+  let user = getCurrentUser();
+  if (!user || !usernameInput) return;
+
+  let username = usernameInput.value.trim();
+  if (username.length < 2 || username.length > 20) {
+    if (usernameError) usernameError.innerText = "Scegli un nome tra 2 e 20 caratteri.";
+    return;
+  }
+
+  saveUsernameBtn.disabled = true;
+  saveUsernameBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvataggio...';
+
+  try {
+    await saveUsername(user, username);
+    currentUsername = username;
+    if (usernameError) usernameError.innerText = "";
+    if (usernameModal) usernameModal.hide();
+    updateAuthUI(user);
+  } catch (error) {
+    console.error("Errore nel salvataggio dello username:", error);
+    if (usernameError) usernameError.innerText = "Errore durante il salvataggio, riprova.";
+  } finally {
+    saveUsernameBtn.disabled = false;
+    saveUsernameBtn.innerHTML = '<i class="fa-solid fa-check"></i> Conferma';
+  }
+}
 
 function updateAuthUI(user) {
   let isGoogleUser = Boolean(user && !user.isAnonymous);
@@ -133,10 +183,10 @@ function updateAuthUI(user) {
     googleSigninBtn.classList.add("d-none");
     userGreeting.classList.remove("d-none");
     userAvatar.src = user.photoURL || "";
-    userNameElement.innerText = user.displayName || user.email || "Ammiraglio";
+    userNameElement.innerText = currentUsername || user.displayName || "Ammiraglio";
 
-    playerNameInput.value = user.displayName || "";
-    playerNameInput.disabled = true;
+    playerNameInput.value = currentUsername || user.displayName || "";
+    playerNameInput.disabled = false;
     modalSigninHint.classList.add("d-none");
     modalGoogleSigninBtn.classList.add("d-none");
     saveScoreBtn.classList.remove("d-none");
@@ -226,7 +276,7 @@ function resetGame() {
   settingsError.innerText = "";
   messageElement.innerText = 'Premi "Inizia partita" per giocare!';
   hitsElement.innerText = "Colpi a segno: 0";
-  document.getElementById("timer").innerHTML =
+  document.getElementById("timer-value").innerHTML =
     `<span id="min">00</span>:<span id="sec">00</span>`;
 }
 
@@ -407,8 +457,8 @@ function checkWin() {
     modalAttemptsElement.innerText = String(totalShots);
     modalScoreElement.innerText = String(currentScore);
     saveScoreBtn.disabled = false;
-    saveScoreBtn.innerText = "Salva punteggio";
-    updateAuthUI(auth.currentUser);
+    saveScoreBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Salva punteggio';
+    updateAuthUI(getCurrentUser());
 
     if (scoreModal) {
       scoreModal.show();
@@ -419,32 +469,32 @@ function checkWin() {
 }
 
 async function handleSaveScore() {
-  let user = auth.currentUser;
+  let user = getCurrentUser();
   if (!user || user.isAnonymous) {
     modalSigninHint.classList.remove("d-none");
     modalGoogleSigninBtn.classList.remove("d-none");
     return;
   }
 
-  let nome = user.displayName || "Ammiraglio";
+  let nome = playerNameInput.value.trim() || currentUsername || user.displayName || "Ammiraglio";
 
   saveScoreBtn.disabled = true;
-  saveScoreBtn.innerText = "Salvataggio...";
+  saveScoreBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvataggio...';
 
   try {
-    await salvaPunteggio(nome, currentScore, user.uid);
+    await saveScore(nome, currentScore, user.uid);
     if (scoreModal) scoreModal.hide();
   } catch (error) {
     console.error("Errore nel salvataggio del punteggio:", error);
     saveScoreBtn.disabled = false;
-    saveScoreBtn.innerText = "Salva punteggio";
+    saveScoreBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Salva punteggio';
   }
 }
 
 function startTimer() {
   elapsedMinutes = 0;
   elapsedSeconds = 0;
-  const timerElement = document.getElementById("timer");
+  const timerElement = document.getElementById("timer-value");
 
   timerInterval = setInterval(() => {
     elapsedSeconds++;
@@ -459,7 +509,7 @@ function startTimer() {
 function calcolaPunteggio() {
   let difficultyBase = gridSize * 20 + totLenNavi * 30 + ships.length * 20;
 
-  let minAttempts = totLenNavi; 
+  let minAttempts = totLenNavi; // tentativi minimi teorici se non si sbaglia mai
   let extraAttempts = Math.max(0, totalShots - minAttempts);
   let attemptsPenalty = extraAttempts * 15;
 
@@ -475,25 +525,8 @@ function formatTime() {
 }
 
 
-async function salvaPunteggio(nome, punteggio, uid) {
-  const nuovoPunteggio = push(ref(db, "leaderboard"));
-  await set(nuovoPunteggio, {
-    nome: nome,
-    punteggio: punteggio,
-    timestamp: Date.now(),
-    uid: uid,
-  });
-}
-
-
-const leaderboardQuery = query(ref(db, "leaderboard"), orderByChild("punteggio"), limitToLast(10));
-onValue(leaderboardQuery, (snapshot) => {
+subscribeToLeaderboard((entries) => {
   leaderboardElement.innerHTML = "";
-
-  let entries = [];
-  snapshot.forEach((childSnapshot) => {
-    entries.push(childSnapshot.val());
-  });
 
   if (entries.length === 0) {
     let empty = document.createElement("p");
@@ -502,8 +535,6 @@ onValue(leaderboardQuery, (snapshot) => {
     leaderboardElement.appendChild(empty);
     return;
   }
-
-  entries.reverse();
 
   entries.forEach((entry, index) => {
     let leaderboardEntry = document.createElement("div");
