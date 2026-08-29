@@ -256,6 +256,14 @@ p {
     color: #1b3a4b;
 }
 
+#google-auth-error {
+    color: #e63946;
+    font-weight: bold;
+    font-size: 14px;
+    max-width: 480px;
+    margin: 4px auto 0 auto;
+}
+
 #user-greeting {
     display: inline-flex;
     align-items: center;

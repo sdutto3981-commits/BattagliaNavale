@@ -31,6 +31,8 @@
       </span>
     </div>
 
+    <p id="google-auth-error" class="text-center"></p>
+
     <div id="settings-panel">
       <div class="setting-group">
         <label for="grid-size">Dimensione griglia</label>
@@ -63,6 +65,28 @@
       <h2>Classifica</h2>
       <div id="leaderboard">
         <p id="leaderboard-empty">Nessun punteggio ancora registrato.</p>
+      </div>
+    </div>
+
+    <!-- Modal primo accesso: scelta username -->
+    <div class="modal fade" id="username-modal" tabindex="-1" aria-labelledby="username-modal-label" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="username-modal-label">Benvenuto, ammiraglio!</h5>
+          </div>
+          <div class="modal-body">
+            <p>Scegli un nome utente da usare nella classifica (verrà mostrato al posto della tua email).</p>
+            <div class="mb-3">
+              <label for="username-input" class="form-label">Nome utente</label>
+              <input type="text" id="username-input" class="form-control" maxlength="20" placeholder="Es. AmmiraglioRossi" />
+              <div id="username-error" class="form-text text-danger"></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-success" id="save-username-btn">Conferma</button>
+          </div>
+        </div>
       </div>
     </div>
 
